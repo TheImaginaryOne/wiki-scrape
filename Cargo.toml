@@ -1,0 +1,7 @@
+[package]
+name = "wiki-scrape"
+version = "0.1.0"
+authors = ["TheImaginaryOne <johnathanleung@hotmail.co.nz>"]
+edition = "2018"
+
+[dependencies]
