@@ -1,7 +1,11 @@
 [package]
 name = "wiki-scrape"
 version = "0.1.0"
-authors = ["TheImaginaryOne <johnathanleung@hotmail.co.nz>"]
+authors = ["TheImaginaryOne"]
 edition = "2018"
 
 [dependencies]
+reqwest = "0.9.11"
+url = "1.2"
+kuchiki = "0.7.2"
+unicode-segmentation = "1.2.1"
