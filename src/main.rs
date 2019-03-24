@@ -139,18 +139,25 @@ fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<st
     // the rest_v1 html has lots of additional metadata
     let base_url = url::Url::parse("https://en.wikipedia.org/api/rest_v1/page/html/").unwrap();
 
+    let mut visited_links: Vec<String> = vec![];
+
     loop {
         if current == final_page {
             println!("Reached {} in {} clicks!", final_page, count);
             return Ok(());
         }
         println!("Visiting {}...", current);
+        if visited_links.contains(&current) {
+            println!("Cycle detected!");
+            return Ok(());
+        }
         let url = base_url.join(&current).unwrap();
         let mut resp = client.get(url).send()?;
         if !resp.status().is_success() {
             println!("Page {} nonexistent!", current);
-            break;
+            return OK(());
         }
+        visited_links.push(current.clone());
         let resp_html = delete_parentheses(resp.text()?);
 
         //et mut resp_html = r"<html><body>nihaoma?</body></html>";
@@ -173,7 +180,7 @@ fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<st
             }
         }
         if !link_found {
-            println!("Deadend: No wikilink found on {}", current);
+            println!("Deadend: No wikilink found on {}!", current);
             break;
         }
 
@@ -186,9 +193,9 @@ fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<st
 }
 fn main() {
     println!("--- THE WIKIPEDIA SCRAPER ---");
-    // match follow_first_links("Science", "Philosophy") {
-    //     Ok(_) => (),
-    //     Err(e) => println!("AIYAA! an error:\n{}", e)
-    // };
-    word_analysis("Jens Stub");
+    match follow_first_links("Philosophy", "x") {
+        Ok(_) => (),
+        Err(e) => println!("AIYAA! an error:\n{}", e)
+    };
+    //word_analysis("Jens Stub");
 }
