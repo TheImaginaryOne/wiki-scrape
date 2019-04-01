@@ -3,9 +3,11 @@ use std::borrow::Borrow;
 use std::collections::{HashMap};
 use regex::{Regex};
 use unicode_segmentation::UnicodeSegmentation;
+use colored::*;
+use clap::{Arg, App, SubCommand};
 
 fn word_analysis(title: &str) -> Result<(), Box<std::error::Error>> {
-    println!("Fetching: {}...", title);
+    println!("{}{}...", "Fetching ".bold(), title);
     let page_url = title;
     // TODO replace spaces with underscores
 
@@ -133,7 +135,7 @@ mod tests {
 fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<std::error::Error>> {
     let client = reqwest::Client::new();
 
-    println!(">> Following first wikilinks of each page");
+    println!("{}", ">> Following first wikilinks of each page".bright_green());
     let mut count = 0;
     let mut current = format!("{}", initial_page);
     // the rest_v1 html has lots of additional metadata
@@ -143,19 +145,19 @@ fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<st
 
     loop {
         if current == final_page {
-            println!("Reached {} in {} clicks!", final_page, count);
+            println!("{}", format!("Reached {} in {} clicks!", final_page, count).green().bold());
             return Ok(());
         }
-        println!("Visiting {}...", current);
+        println!("{}{}...", "Visiting ".bold(), current);
         if visited_links.contains(&current) {
-            println!("Cycle detected!");
+            println!("{}", "Cycle detected!".green().bold());
             return Ok(());
         }
         let url = base_url.join(&current).unwrap();
         let mut resp = client.get(url).send()?;
         if !resp.status().is_success() {
-            println!("Page {} nonexistent!", current);
-            return OK(());
+            println!("{}", format!("Page {} nonexistent!", current).red().bold());
+            return Ok(());
         }
         visited_links.push(current.clone());
         let resp_html = delete_parentheses(resp.text()?);
@@ -180,7 +182,7 @@ fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<st
             }
         }
         if !link_found {
-            println!("Deadend: No wikilink found on {}!", current);
+            println!("{}", format!("Deadend: No wikilink found on {}!", current).red().bold());
             break;
         }
 
@@ -192,10 +194,39 @@ fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<st
     Ok(())
 }
 fn main() {
-    println!("--- THE WIKIPEDIA SCRAPER ---");
-    match follow_first_links("Philosophy", "x") {
-        Ok(_) => (),
-        Err(e) => println!("AIYAA! an error:\n{}", e)
-    };
-    //word_analysis("Jens Stub");
+    let app = App::new("The Wiki Scraper")
+        .version("0.1.0")
+        .before_help("The best command-line Wikipedia tool ever!!1!")
+        .subcommand(SubCommand::with_name("analysis")
+            .about("Analyzes word counts of an article")
+            .arg(Arg::with_name("title").required(true)
+                .help("The title of the page to analyze")))
+        .subcommand(SubCommand::with_name("first-link")
+            .about(
+            "Clicks the first link of the article repeatedly to try to get to the desired destination article, like the Wikipedia Philosophy game")
+            .arg(Arg::with_name("start")
+                .required(true)
+                .help("The initial wikipage"))
+            .arg(Arg::with_name("end")
+                .help("The destination wikipage, defaults to Philosophy")))
+        .get_matches();
+
+    println!("{}{}{}", ">>>>> ",
+        "THE WIKIPEDIA SCRAPER".cyan().bold(),
+        " <<<<<");
+    
+    if let Some(matches) = app.subcommand_matches("first-link") {
+        let start = matches.value_of("start").unwrap();
+        let end = matches.value_of("end").unwrap_or("Philosophy");
+        match follow_first_links(start, end) {
+            Ok(_) => (),
+            Err(e) => println!("{}\n{}", "AIYAA! an error:".red().bold(), e)
+        };
+    }
+    if let Some(matches) = app.subcommand_matches("analysis") {
+        match word_analysis(matches.value_of("title").unwrap()) {
+            Ok(_) => (),
+            Err(e) => println!("{}\n{}", "AIYAA! an error:".red().bold(), e)
+        };
+    }
 }
