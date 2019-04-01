@@ -6,7 +6,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use colored::*;
 use clap::{Arg, App, SubCommand};
 
-fn word_analysis(title: &str) -> Result<(), Box<std::error::Error>> {
+fn word_analysis(title: &str) -> Result<TextStatistics, Box<std::error::Error>> {
     println!("{}{}...", "Fetching ".bold(), title);
     let page_url = title;
     // TODO replace spaces with underscores
@@ -34,14 +34,37 @@ fn word_analysis(title: &str) -> Result<(), Box<std::error::Error>> {
         // let re = regex::Regex::new(r" [\[\]()]").unwrap();
         // let words = re.replace_all(s, re);
     }
-    println!("{}", text);
-    let stats = word_count(text);
-    for (k, count) in stats.word_counts.iter() {
-        let word_variants = stats.word_variants.get(k).unwrap();
-        let word_entry = word_variants.join("/");
-        println!("{}: {}", word_entry, count);
+    Ok(word_count(text))
+}
+
+fn print_table(results: &Vec<(String, u32)>, word_variants: &HashMap<String, Vec<String>>) {
+    let mut entry_col_width = 0;
+    let mut count_column_width = 0;
+    let mut table = Vec::new();
+    for (table_entry, count) in results {
+        let l = word_variants.get(table_entry).unwrap();
+        let entry_text = l.join("/");
+        let entry_len = entry_text.graphemes(true).collect::<Vec<_>>().len();
+        let count_len = count.to_string().graphemes(true).collect::<Vec<_>>().len();
+        if entry_col_width < entry_len {
+            entry_col_width = entry_len;
+        }
+        if count_column_width < count_len {
+            count_column_width = count_len;
+        }
+        table.push((entry_text, count));
     }
-    Ok(())
+    println!("{}┬{}", "─".repeat(entry_col_width + 2), "─".repeat(count_column_width + 3));
+    for (k, v) in table {
+        println!(" {a:>0$} │ {b}", entry_col_width, a=k, b=v);
+    }
+}
+
+fn top_n_entries(counts_map: &HashMap<String, u32>, n: u32) -> Vec<(String, u32)> {
+    let mut counts = counts_map.iter().map(|(x,y)| (x.clone(), y.clone())).collect::<Vec<_>>();
+    counts.sort_by(|x,y| y.1.cmp(&x.1));
+    counts.truncate(n as usize);
+    counts
 }
 
 struct TextStatistics {
@@ -59,7 +82,6 @@ fn word_count(text: String) -> TextStatistics {
     let re = Regex::new(&format!(r"{0}[{0}'\-]+", latin)).unwrap();
     for cap in re.captures_iter(&text) {
         let word = cap[0].to_string();
-        print!("{} ", word);
         let lower = word.to_lowercase(); // unicode supported
         
         let word_count = stats.word_counts.entry(lower.clone()).or_insert(0);
@@ -193,14 +215,24 @@ fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<st
     }
     Ok(())
 }
+
+fn validate_u32(input: String) -> Result<(), String> {
+    match input.parse::<u32>() {
+        Ok(_) => Ok(()),
+        Err(_) => Err("not a positive integer".to_string()),
+    }
+}
 fn main() {
     let app = App::new("The Wiki Scraper")
         .version("0.1.0")
         .before_help("The best command-line Wikipedia tool ever!!1!")
         .subcommand(SubCommand::with_name("analysis")
             .about("Analyzes word counts of an article")
-            .arg(Arg::with_name("title").required(true)
-                .help("The title of the page to analyze")))
+            .arg(Arg::with_name("title").required(true))
+                .help("The title of the page to analyze")
+            .arg(Arg::with_name("count").long("count").short("c")
+                .takes_value(true).validator(validate_u32))
+                .help("How many entries to include in the table"))
         .subcommand(SubCommand::with_name("first-link")
             .about(
             "Clicks the first link of the article repeatedly to try to get to the desired destination article, like the Wikipedia Philosophy game")
@@ -224,9 +256,19 @@ fn main() {
         };
     }
     if let Some(matches) = app.subcommand_matches("analysis") {
-        match word_analysis(matches.value_of("title").unwrap()) {
-            Ok(_) => (),
-            Err(e) => println!("{}\n{}", "AIYAA! an error:".red().bold(), e)
+        let result = match word_analysis(matches.value_of("title").unwrap()) {
+            Ok(res) => res,
+            Err(e) => {
+                println!("{}\n{}", "AIYAA! an error:".red().bold(), e);
+                return;
+            }
         };
+        let entry_count = match matches.value_of("count") {
+            Some(x) => x.parse().unwrap(),
+            None => result.word_counts.len() as u32,
+        };
+        let counts = top_n_entries(&result.word_counts, entry_count);
+        println!("{} {} {}", "Printing".bold(), entry_count, "entries");
+        print_table(&counts, &result.word_variants);
     }
 }
