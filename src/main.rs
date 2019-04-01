@@ -99,11 +99,10 @@ fn word_count(text: String) -> TextStatistics {
 /// as the first wikilink we want must be "in the main text", meaning not parenthesised.
 /// We keep parentheses inside tag attributes however.
 /// (hello)hello changes to hello, but <a href="hello_(hello)"></a> is unchanged.
-fn delete_parentheses<S: Into<String>>(input_str: S) -> String {
+fn delete_parentheses(s: String) -> String {
     let mut parenth_level = 0;
     let mut tag_level = 0;
     let mut result: String = "".to_string();
-    let s: String = input_str.into();
     for c in s.graphemes(true) {
         if parenth_level <= 0 {
             if c == "<" {
@@ -137,19 +136,19 @@ mod tests {
     use super::delete_parentheses;
     #[test]
     fn parenth1() {
-        assert_eq!(delete_parentheses("hello (hello (hello) hello) hello"), "hello  hello")
+        assert_eq!(delete_parentheses("hello (hello (hello) hello) hello".to_string()), "hello  hello")
     }
     #[test]
     fn parenth2() {
-        assert_eq!(delete_parentheses("()"), "")
+        assert_eq!(delete_parentheses("()".to_string()), "")
     }
     #[test]
     fn parenth3() {
-        assert_eq!(delete_parentheses("<a href='hello_(hello)'>(hello)hello</a>"), "<a href='hello_(hello)'>hello</a>")
+        assert_eq!(delete_parentheses("<a href='hello_(hello)'>(hello)hello</a>".to_string()), "<a href='hello_(hello)'>hello</a>")
     }
     #[test]
     fn parenth4() {
-        assert_eq!(delete_parentheses("<a>(<b>)<b>(f<a>jjj</a>>)hello"), "<a><b>hello")
+        assert_eq!(delete_parentheses("<a>(<b>)<b>(f<a>jjj</a>>)hello".to_string()), "<a><b>hello")
     }
 }
 
