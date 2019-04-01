@@ -7,9 +7,8 @@ use colored::*;
 use clap::{Arg, App, SubCommand};
 
 fn word_analysis(title: &str) -> Result<TextStatistics, Box<std::error::Error>> {
-    println!("{}{}...", "Fetching ".bold(), title);
+    println!("{}{}...", "Fetching ".bold(), title.replace("_", " "));
     let page_url = title;
-    // TODO replace spaces with underscores
 
     let base_url = url::Url::parse("https://en.wikipedia.org/api/rest_v1/page/html/").unwrap();
     let mut resp = reqwest::get(base_url.join(page_url).unwrap())?;
@@ -170,7 +169,7 @@ fn follow_first_links(initial_page: &str, final_page: &str) -> Result<(), Box<st
             println!("{}", format!("Reached {} in {} clicks!", final_page, count).green().bold());
             return Ok(());
         }
-        println!("{}{}...", "Visiting ".bold(), current);
+        println!("{}{}...", "Visiting ".bold(), current.replace("_", " "));
         if visited_links.contains(&current) {
             println!("{}", "Cycle detected!".green().bold());
             return Ok(());
@@ -250,13 +249,14 @@ fn main() {
     if let Some(matches) = app.subcommand_matches("first-link") {
         let start = matches.value_of("start").unwrap();
         let end = matches.value_of("end").unwrap_or("Philosophy");
-        match follow_first_links(start, end) {
+        match follow_first_links(&start.replace(" ", "_"), &end.replace(" ", "_")) {
             Ok(_) => (),
             Err(e) => println!("{}\n{}", "AIYAA! an error:".red().bold(), e)
         };
     }
     if let Some(matches) = app.subcommand_matches("analysis") {
-        let result = match word_analysis(matches.value_of("title").unwrap()) {
+        let page_title = matches.value_of("title").unwrap();
+        let result = match word_analysis(&page_title.replace(" ", "_")) {
             Ok(res) => res,
             Err(e) => {
                 println!("{}\n{}", "AIYAA! an error:".red().bold(), e);
